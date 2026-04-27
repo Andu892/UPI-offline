@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-current.dtd">
+<suite name="UPI Offline Mesh E2E Test Suite" verbose="2" thread-count="5">
+    <parameter name="baseUrl" value="http://localhost:8080"/>
+    
+    <!-- E2E Tests -->
+    <test name="UPI Mesh E2E Tests">
+        <classes>
+            <class name="com.demo.upimesh.e2e.UpiMeshE2ETest">
+                <!-- Test methods in execution order -->
+                <methods>
+                    <include name="testGetServerPublicKey"/>
+                    <include name="testGetMeshState"/>
+                    <include name="testListAccounts"/>
+                    <include name="testDemoSendTransaction"/>
+                    <include name="testMeshGossip"/>
+                    <include name="testBridgeFlushAndSettlement"/>
+                    <include name="testListTransactions"/>
+                    <include name="testMeshReset"/>
+                    <include name="testCompleteE2EFlow"/>
+                    <include name="testInvalidDemoRequest"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+</suite>

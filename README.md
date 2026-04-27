@@ -253,6 +253,153 @@ java -jar target/upi-mesh-*.jar
 
 ---
 
+## 🐳 Docker Deployment
+
+### Quick Start with Docker Compose
+
+```bash
+# Start the application
+docker-compose up
+
+# or in detached mode
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop the application
+docker-compose down
+```
+
+### Building and Running with Docker
+
+```bash
+# Option 1: Using build script (easiest)
+chmod +x docker-build.sh
+./docker-build.sh
+
+# Option 2: Manual build
+docker build -t upi-offline-mesh:latest .
+
+# Run the container
+docker run -p 8080:8080 upi-offline-mesh:latest
+```
+
+### Access Application in Docker
+
+- **Dashboard:** http://localhost:8080
+- **Swagger API Docs:** http://localhost:8080/swagger-ui.html
+- **OpenAPI Spec:** http://localhost:8080/v3/api-docs
+- **H2 Console:** http://localhost:8080/h2-console
+
+### Docker Features
+
+- ✅ Multi-stage build for optimized size (~400MB)
+- ✅ Non-root user for security
+- ✅ Health checks
+- ✅ Optimized JVM settings for containers
+- ✅ Ready for production registry push
+
+### Pushing to Container Registry
+
+```bash
+# Docker Hub
+docker tag upi-offline-mesh:latest your-username/upi-offline-mesh:latest
+docker push your-username/upi-offline-mesh:latest
+
+# Amazon ECR
+aws ecr get-login-password | docker login --username AWS --password-stdin YOUR_ECR_URI
+docker tag upi-offline-mesh:latest YOUR_ECR_URI/upi-offline-mesh:latest
+docker push YOUR_ECR_URI/upi-offline-mesh:latest
+```
+
+---
+
+## 🧪 End-to-End Testing
+
+### Quick Start
+
+```bash
+# Start the application
+./run.sh
+
+# In another terminal, run E2E tests
+chmod +x run-e2e-tests.sh
+./run-e2e-tests.sh
+```
+
+### Test Suite
+
+The project includes a comprehensive E2E test suite with 10 test cases covering:
+
+✅ **Server Key Management** — RSA-2048 public key retrieval  
+✅ **Mesh State** — Device and network state queries  
+✅ **Account Management** — Demo account listing  
+✅ **Transaction Creation** — Packet generation and injection  
+✅ **Mesh Gossip** — Packet propagation across devices  
+✅ **Bridge Uploads** — Concurrent packet uploads  
+✅ **Idempotency** — Duplicate detection and handling  
+✅ **Settlement** — Transaction finalization  
+✅ **Complete Workflow** — Full end-to-end flow  
+✅ **Error Handling** — Invalid request handling  
+
+### Running Tests
+
+```bash
+# Run all E2E tests
+./mvnw test -Dtest=UpiMeshE2ETest
+
+# Run specific test
+./mvnw test -Dtest=UpiMeshE2ETest#testCompleteE2EFlow
+
+# Run with TestNG configuration
+./mvnw test -Dsuites=src/test/resources/testng.xml
+
+# Run all tests (unit + E2E)
+./mvnw test
+```
+
+### Test Framework Stack
+
+- **RestAssured** - REST API testing
+- **TestNG** - Advanced test framework with dependency support
+- **Spring Boot Test** - Application context
+- **JUnit 5** - Unit testing
+
+### Test Results
+
+Expected output:
+```
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running com.demo.upimesh.e2e.UpiMeshE2ETest
+[INFO] Tests run: 10, Failures: 0, Errors: 0, Skipped: 0
+[INFO] -------------------------------------------------------
+[INFO] BUILD SUCCESS
+```
+
+### CI/CD Integration
+
+```yaml
+# GitHub Actions example
+- name: Run E2E Tests
+  run: |
+    docker-compose up -d
+    ./mvnw test -Dtest=UpiMeshE2ETest
+    docker-compose down
+```
+
+### Detailed Testing Guide
+
+See [TESTING_AND_DEPLOYMENT.md](TESTING_AND_DEPLOYMENT.md) for:
+- Advanced test configuration
+- Troubleshooting guide
+- Performance considerations
+- Best practices
+
+---
+
 ## Honest Limitations
 
 This is a protocol demo. These are inherent constraints of offline payments, not implementation bugs:

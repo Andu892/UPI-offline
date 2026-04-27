@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  upi-mesh-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: upi-offline-mesh
+    ports:
+      - "8080:8080"
+    environment:
+      # Server configuration
+      SERVER_PORT: 8080
+      
+      # H2 Database (in-memory, no persistence needed for demo)
+      SPRING_DATASOURCE_URL: "jdbc:h2:mem:upimesh"
+      SPRING_DATASOURCE_DRIVERCLASSNAME: "org.h2.Driver"
+      SPRING_DATASOURCE_USERNAME: "sa"
+      SPRING_DATASOURCE_PASSWORD: ""
+      SPRING_JPA_HIBERNATEDDLAUTO: "create-drop"
+      SPRING_JPA_SHOWSQL: "false"
+      
+      # H2 Console
+      SPRING_H2_CONSOLE_ENABLED: "true"
+      SPRING_H2_CONSOLE_PATH: "/h2-console"
+      
+      # Logging
+      LOGGING_LEVEL_COMDEMOPMESH: "INFO"
+      
+      # Swagger configuration
+      SPRINGDOC_SWAGGER_UI_ENABLED: "true"
+      SPRINGDOC_API_DOCS_ENABLED: "true"
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/swagger-ui.html"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    
+    networks:
+      - upi-mesh-network
+    
+    # Restart policy
+    restart: unless-stopped
+
+networks:
+  upi-mesh-network:
+    driver: bridge

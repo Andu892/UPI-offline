@@ -3,6 +3,13 @@ package com.demo.upimesh.controller;
 import com.demo.upimesh.crypto.ServerKeyHolder;
 import com.demo.upimesh.model.*;
 import com.demo.upimesh.service.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +28,7 @@ import java.util.*;
  */
 @RestController
 @RequestMapping("/api")
+@Tag(name = "UPI Offline Mesh API", description = "REST endpoints for offline UPI mesh simulation, bridge ingestion, and transaction management")
 public class ApiController {
 
     @Autowired private ServerKeyHolder serverKey;
@@ -34,6 +42,8 @@ public class ApiController {
     // ------------------------------------------------------------------ key
 
     @GetMapping("/server-key")
+    @Operation(summary = "Get server public key", description = "Retrieves the server's RSA-2048 public key and cryptographic scheme details used for hybrid encryption")
+    @ApiResponse(responseCode = "200", description = "Server public key details")
     public Map<String, String> getServerPublicKey() {
         return Map.of(
                 "publicKey", serverKey.getPublicKeyBase64(),
@@ -49,6 +59,12 @@ public class ApiController {
      * and inject it into the mesh at the given device.
      */
     @PostMapping("/demo/send")
+    @Operation(summary = "Send a demo transaction", description = "Creates and injects a payment packet into the mesh simulator at the specified device. The packet is encrypted and circulated across the mesh network.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Packet successfully created and injected"),
+        @ApiResponse(responseCode = "400", description = "Invalid request parameters"),
+        @ApiResponse(responseCode = "500", description = "Encryption or injection error")
+    })
     public ResponseEntity<?> demoSend(@RequestBody DemoSendRequest req) throws Exception {
         MeshPacket packet = demo.createPacket(
                 req.senderVpa, req.receiverVpa, req.amount, req.pin,
@@ -66,17 +82,30 @@ public class ApiController {
     }
 
     public static class DemoSendRequest {
+        @Schema(description = "Sender's Virtual Payment Address (e.g., 'alice@upi')", example = "alice@upi")
         public String senderVpa;
+        
+        @Schema(description = "Receiver's Virtual Payment Address (e.g., 'bob@upi')", example = "bob@upi")
         public String receiverVpa;
+        
+        @Schema(description = "Amount to transfer in decimal format", example = "100.50")
         public BigDecimal amount;
+        
+        @Schema(description = "Sender's UPI PIN for authorization", example = "1234")
         public String pin;
+        
+        @Schema(description = "Time-to-live: maximum hops through mesh network. Default: 5", example = "5")
         public Integer ttl;
+        
+        @Schema(description = "Virtual device to start packet injection. Default: 'phone-alice'", example = "phone-alice")
         public String startDevice;
     }
 
     // -------------------------------------------------------------- mesh sim
 
     @GetMapping("/mesh/state")
+    @Operation(summary = "Get mesh network state", description = "Returns the current state of all virtual devices in the mesh, including their internet connectivity status, held packets, and idempotency cache size")
+    @ApiResponse(responseCode = "200", description = "Current mesh state with device information")
     public Map<String, Object> meshState() {
         List<Map<String, Object>> deviceData = new ArrayList<>();
         for (VirtualDevice d : mesh.getDevices()) {
@@ -96,6 +125,8 @@ public class ApiController {
     }
 
     @PostMapping("/mesh/gossip")
+    @Operation(summary = "Execute one gossip round", description = "Simulates one round of packet gossip between nearby mesh devices. Packets propagate to adjacent devices with decreasing TTL.")
+    @ApiResponse(responseCode = "200", description = "Gossip result with packet transfers and device states")
     public Map<String, Object> meshGossip() {
         MeshSimulatorService.GossipResult r = mesh.gossipOnce();
         return Map.of(
@@ -113,6 +144,8 @@ public class ApiController {
      * concurrent POSTs of the same ciphertext, and only one should settle.
      */
     @PostMapping("/mesh/flush")
+    @Operation(summary = "Bridge nodes upload packets", description = "Simulates all bridge nodes getting connectivity and uploading held packets concurrently. This tests duplicate handling and idempotency.")
+    @ApiResponse(responseCode = "200", description = "Upload results for all bridges with settlement outcomes")
     public Map<String, Object> meshFlush() {
         List<MeshSimulatorService.BridgeUpload> uploads = mesh.collectBridgeUploads();
 
@@ -139,6 +172,8 @@ public class ApiController {
     }
 
     @PostMapping("/mesh/reset")
+    @Operation(summary = "Reset mesh network", description = "Clears all held packets from mesh devices and resets the idempotency cache. Used to start a fresh simulation scenario.")
+    @ApiResponse(responseCode = "200", description = "Confirmation that mesh and cache have been cleared")
     public Map<String, Object> meshReset() {
         mesh.resetMesh();
         idempotency.clear();
@@ -153,10 +188,16 @@ public class ApiController {
      * the device has internet and is holding mesh packets.
      */
     @PostMapping("/bridge/ingest")
+    @Operation(summary = "Bridge node ingests packet", description = "THE PRODUCTION ENDPOINT. Bridge nodes POST mesh packets here when they gain internet connectivity. Handles packet validation, decryption, settlement, and idempotency.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Packet ingested with settlement outcome"),
+        @ApiResponse(responseCode = "400", description = "Invalid packet format or decryption failure"),
+        @ApiResponse(responseCode = "409", description = "Duplicate packet detected (idempotency handling)")
+    })
     public ResponseEntity<?> ingest(
             @RequestBody MeshPacket packet,
-            @RequestHeader(value = "X-Bridge-Node-Id", defaultValue = "unknown") String bridgeNodeId,
-            @RequestHeader(value = "X-Hop-Count", defaultValue = "0") int hopCount) {
+            @Parameter(description = "Identifier of the bridge node uploading the packet") @RequestHeader(value = "X-Bridge-Node-Id", defaultValue = "unknown") String bridgeNodeId,
+            @Parameter(description = "Number of hops the packet took through the mesh") @RequestHeader(value = "X-Hop-Count", defaultValue = "0") int hopCount) {
 
         BridgeIngestionService.IngestResult r = bridge.ingest(packet, bridgeNodeId, hopCount);
         return ResponseEntity.ok(r);
@@ -165,11 +206,15 @@ public class ApiController {
     // ------------------------------------------------------------- accounts
 
     @GetMapping("/accounts")
+    @Operation(summary = "List all accounts", description = "Retrieves all demo accounts in the system with their balances and details")
+    @ApiResponse(responseCode = "200", description = "List of all accounts")
     public List<Account> listAccounts() {
         return accountRepo.findAll();
     }
 
     @GetMapping("/transactions")
+    @Operation(summary = "List recent transactions", description = "Retrieves the 20 most recent settled transactions in descending order by ID")
+    @ApiResponse(responseCode = "200", description = "List of recent transactions")
     public List<Transaction> listTransactions() {
         return txRepo.findTop20ByOrderByIdDesc();
     }
